@@ -14,6 +14,8 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4}
 main{max-width:560px;margin:0 auto;padding:20px 16px 48px}
 h1{font-size:1.7rem;margin:8px 0 2px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+#theme{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:1.3rem;cursor:pointer;flex:none}
 .sub{color:var(--muted);margin:0 0 20px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
 .tab{padding:18px 8px;border-radius:16px;border:2px solid var(--line);background:var(--card);color:var(--text);font-size:1.05rem;font-weight:600;cursor:pointer}
@@ -36,8 +38,9 @@ li button:disabled{opacity:.3}
 </head>
 <body>
 <main>
-  <h1>PDF Fácil</h1>
-  <p class="sub">Todo pasa en tu teléfono. No se sube nada a ningún lado.</p>
+  <div class="top"><div><h1>PDF Fácil</h1>
+  <p class="sub">Todo pasa en tu equipo. No se sube nada a ningún lado.</p></div>
+  <button id="theme" aria-label="Cambiar entre modo claro y oscuro">🌙</button></div>
 
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="t-merge" aria-selected="true"><span class="ic">📑</span>Unir PDFs</button>
@@ -145,6 +148,18 @@ li button:disabled{opacity:.3}
     }
     render();
   };
+
+  var root = document.documentElement, tb = document.getElementById('theme');
+  function isDark(){ var t = root.getAttribute('data-theme'); return t ? t==='dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; }
+  function paint(){ tb.textContent = isDark() ? '☀️' : '🌙'; }
+  try{ var saved = localStorage.getItem('pdf-theme'); if (saved) root.setAttribute('data-theme', saved); }catch(e){}
+  tb.onclick = function(){
+    var next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try{ localStorage.setItem('pdf-theme', next); }catch(e){}
+    paint();
+  };
+  paint();
 
   setMode('merge');
 })();
