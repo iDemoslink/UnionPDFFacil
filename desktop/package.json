@@ -1,0 +1,24 @@
+{
+  "name": "union-pdf-facil",
+  "version": "1.0.0",
+  "description": "Unir PDFs, imágenes a PDF y editar páginas, sin internet",
+  "main": "main.js",
+  "author": "iDemoslink",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.idemoslink.unionpdffacil",
+    "productName": "PDF Facil",
+    "files": ["main.js", "index.html", "lib/**/*"],
+    "win": { "target": ["nsis", "portable"] },
+    "nsis": { "oneClick": true, "artifactName": "PDF-Facil-Instalador-${version}.${ext}" },
+    "portable": { "artifactName": "PDF-Facil-Portable-${version}.${ext}" }
+  }
+}
