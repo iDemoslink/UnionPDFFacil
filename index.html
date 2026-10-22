@@ -17,8 +17,8 @@ h1{font-size:1.7rem;margin:8px 0 2px}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 #theme{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:1.3rem;cursor:pointer;flex:none}
 .sub{color:var(--muted);margin:0 0 20px}
-.tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
-.tab{padding:18px 8px;border-radius:16px;border:2px solid var(--line);background:var(--card);color:var(--text);font-size:1.05rem;font-weight:600;cursor:pointer}
+.tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.tab{padding:14px 4px;border-radius:16px;border:2px solid var(--line);background:var(--card);color:var(--text);font-size:.9rem;font-weight:600;cursor:pointer}
 .tab .ic{display:block;font-size:1.8rem;margin-bottom:4px}
 .tab[aria-selected="true"]{border-color:var(--accent);background:var(--soft)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
@@ -40,6 +40,13 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 .msg{margin-top:12px;min-height:1.4em;font-size:.95rem}
 .msg.err{color:#c92a2a}
 .priv{margin-top:20px;color:var(--muted);font-size:.85rem;text-align:center}
+ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.grid li{display:block;border:1px solid var(--line);border-radius:12px;padding:8px;text-align:center}
+.grid .th{width:100%;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--bg);border-radius:8px}
+.grid .th img{max-width:100%;max-height:100%;transition:transform .2s}
+.grid .pn{font-size:.8rem;color:var(--muted);margin:6px 0}
+.grid .row{display:flex;gap:4px;justify-content:center;margin-top:4px}
+.grid .row button{width:36px;height:36px;font-size:.95rem}
 </style>
 </head>
 <body>
@@ -51,19 +58,23 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="t-merge" aria-selected="true"><span class="ic">📑</span>Unir PDFs</button>
     <button class="tab" role="tab" id="t-img" aria-selected="false"><span class="ic">🖼️</span>Imágenes a PDF</button>
+    <button class="tab" role="tab" id="t-edit" aria-selected="false"><span class="ic">✂️</span>Editar páginas</button>
   </div>
 
   <div class="card">
     <button class="pick" id="pick">+ Elegir archivos</button>
     <input type="file" id="file" multiple hidden>
+    <div class="note" id="hint"></div>
     <ul id="list"></ul>
+    <div id="qwrap">
     <label class="q" for="qual">Calidad</label>
     <select id="qual">
-      <option value="orig">Original (sin comprensión)</option>
+      <option value="orig">Original (sin tocar nada)</option>
       <option value="med">Comprimir (equilibrado)</option>
-      <option value="low">Comprimir al máximo (más chico pero menos calidad)</option>
+      <option value="low">Comprimir al máximo (más chico)</option>
     </select>
     <div class="note" id="qnote"></div>
+    </div>
     <button class="go" id="go" disabled>Crear PDF</button>
     <div class="msg" id="msg" role="status"></div>
   </div>
@@ -73,21 +84,27 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script>
 (function(){
-  var mode = 'merge', files = [];
+  var mode = 'merge', files = [], editPages = [], editBuf = null, loadId = 0;
   var $ = function(id){return document.getElementById(id)};
   var input = $('file'), list = $('list'), go = $('go'), msg = $('msg');
 
   function setMode(m){
-    mode = m; files = [];
+    mode = m; files = []; editPages = []; editBuf = null; loadId++;
     $('t-merge').setAttribute('aria-selected', m==='merge');
     $('t-img').setAttribute('aria-selected', m==='img');
-    input.accept = m==='merge' ? 'application/pdf,.pdf' : 'image/*';
-    $('pick').textContent = m==='merge' ? '+ Elegir PDFs' : '+ Elegir imágenes';
+    $('t-edit').setAttribute('aria-selected', m==='edit');
+    input.accept = m==='img' ? 'image/*' : 'application/pdf,.pdf';
+    input.multiple = m !== 'edit';
+    $('pick').textContent = m==='merge' ? '+ Elegir PDFs' : m==='img' ? '+ Elegir imágenes' : '+ Elegir un PDF';
+    $('qwrap').style.display = m==='edit' ? 'none' : '';
+    $('hint').textContent = m==='edit' ? 'Gira, mueve o quita las páginas que quieras. Las que quites no aparecerán en el PDF nuevo.' : '';
     say(''); render(); if (typeof updateNote === 'function') updateNote();
   }
   function say(t, err){ msg.textContent = t; msg.className = 'msg' + (err ? ' err' : ''); }
 
   function render(){
+    if (mode === 'edit'){ renderEdit(); return; }
+    list.className = '';
     list.innerHTML = '';
     files.forEach(function(f, i){
       var li = document.createElement('li');
@@ -96,7 +113,7 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
       var box = document.createElement('div'); box.className = 'box'; box.appendChild(n);
       if (mode === 'merge'){
         var pi = document.createElement('input'); pi.type = 'text'; pi.inputMode = 'text';
-        pi.placeholder = 'Todas las páginas, déjalo así en blanco';
+        pi.placeholder = 'Todas las páginas deja el espacio en blanco';
         pi.value = f.pages || '';
         pi.oninput = function(){ f.pages = pi.value };
         box.appendChild(pi);
@@ -117,11 +134,17 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 
   $('pick').onclick = function(){ input.click() };
   input.onchange = function(){
+    if (mode === 'edit'){
+      var ef = input.files[0]; input.value = '';
+      if (ef) loadEdit(ef);
+      return;
+    }
     Array.prototype.forEach.call(input.files, function(f){ files.push(f) });
     input.value = ''; say(''); render();
   };
   $('t-merge').onclick = function(){ setMode('merge') };
   $('t-img').onclick = function(){ setMode('img') };
+  $('t-edit').onclick = function(){ setMode('edit') };
 
   function toPng(file){
     return createImageBitmap(file).then(function(bm){
@@ -173,7 +196,76 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
   }
   function mb(n){ return (n/1048576).toFixed(n < 1048576*10 ? 2 : 1) + ' MB' }
 
+  function renderEdit(){
+    list.className = 'grid';
+    list.innerHTML = '';
+    editPages.forEach(function(p, i){
+      var li = document.createElement('li');
+      var th = document.createElement('div'); th.className = 'th';
+      var im = document.createElement('img'); im.src = p.thumb; im.alt = 'Página ' + (p.idx+1);
+      im.style.transform = 'rotate(' + p.rot + 'deg)';
+      th.appendChild(im);
+      var pn = document.createElement('div'); pn.className = 'pn'; pn.textContent = 'Pág. ' + (p.idx+1) + ' (va en ' + (i+1) + ')';
+      var r1 = document.createElement('div'); r1.className = 'row';
+      var r2 = document.createElement('div'); r2.className = 'row';
+      function mk(t, fn, dis){ var b = document.createElement('button'); b.textContent = t; b.disabled = !!dis; b.onclick = fn; return b; }
+      r1.appendChild(mk('◀', function(){ var t = editPages[i]; editPages[i] = editPages[i-1]; editPages[i-1] = t; renderEdit() }, i===0));
+      r1.appendChild(mk('▶', function(){ var t = editPages[i]; editPages[i] = editPages[i+1]; editPages[i+1] = t; renderEdit() }, i===editPages.length-1));
+      r2.appendChild(mk('↺', function(){ p.rot = (p.rot + 270) % 360; renderEdit() }));
+      r2.appendChild(mk('↻', function(){ p.rot = (p.rot + 90) % 360; renderEdit() }));
+      r2.appendChild(mk('✕', function(){ editPages.splice(i,1); renderEdit() }));
+      [th, pn, r1, r2].forEach(function(e){ li.appendChild(e) });
+      list.appendChild(li);
+    });
+    go.disabled = editPages.length === 0;
+    go.textContent = 'Crear PDF con estas páginas';
+  }
+
+  async function loadEdit(file){
+    var id = ++loadId;
+    editPages = []; files = [file]; renderEdit();
+    try{
+      say('Abriendo ' + file.name + '…');
+      editBuf = await file.arrayBuffer();
+      var pdfjs = await loadPdfjs();
+      var doc = await pdfjs.getDocument({data: new Uint8Array(editBuf.slice(0))}).promise;
+      for (var n=1; n<=doc.numPages; n++){
+        if (id !== loadId) { doc.destroy(); return; }
+        say('Cargando páginas… ' + n + ' de ' + doc.numPages);
+        var pg = await doc.getPage(n);
+        var v1 = pg.getViewport({scale:1});
+        var v = pg.getViewport({scale: 220 / Math.max(v1.width, v1.height)});
+        var c = document.createElement('canvas'); c.width = Math.floor(v.width); c.height = Math.floor(v.height);
+        var cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0,0,c.width,c.height);
+        await pg.render({canvasContext: cx, viewport: v}).promise;
+        var thumb = c.toDataURL('image/jpeg', 0.7);
+        c.width = 0; c.height = 0; pg.cleanup();
+        if (id !== loadId) { doc.destroy(); return; }
+        editPages.push({idx: n-1, rot: 0, thumb: thumb});
+        if (n === 1 || n % 5 === 0 || n === doc.numPages) renderEdit();
+      }
+      doc.destroy();
+      if (id === loadId){ say(''); renderEdit(); }
+    }catch(e){
+      if (id === loadId){ say('No pude abrir ese PDF: ' + ((e && e.message) || 'revisa que sea válido'), true); }
+    }
+  }
+
+  async function buildEdit(){
+    var PDFDocument = PDFLib.PDFDocument;
+    var src = await PDFDocument.load(editBuf, {ignoreEncryption:true});
+    var out = await PDFDocument.create();
+    var pages = await out.copyPages(src, editPages.map(function(p){ return p.idx }));
+    pages.forEach(function(pg, i){
+      var ang = pg.getRotation().angle;
+      pg.setRotation(PDFLib.degrees(((ang + editPages[i].rot) % 360 + 360) % 360));
+      out.addPage(pg);
+    });
+    return await out.save();
+  }
+
   async function build(level){
+    if (mode === 'edit') return buildEdit();
     var PDFDocument = PDFLib.PDFDocument;
     var out = await PDFDocument.create();
     var cfg = QUAL[level];
@@ -237,10 +329,10 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
   go.onclick = async function(){
     go.disabled = true; say('Creando tu PDF…');
     try{
-      var level = $('qual').value;
+      var level = mode === 'edit' ? 'orig' : $('qual').value;
       var before = files.reduce(function(t, f){ return t + f.size }, 0);
       var bytes = await build(level);
-      var name = (mode==='merge' ? 'unido' : 'imagenes') + (level==='orig' ? '' : '-comprimido') + '.pdf';
+      var name = (mode==='merge' ? 'unido' : mode==='edit' ? 'editado' : 'imagenes') + (level==='orig' ? '' : '-comprimido') + '.pdf';
       var url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
       var a = document.createElement('a');
       a.href = url; a.download = name;
@@ -272,4 +364,3 @@ select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);b
 </script>
 </body>
 </html>
-
