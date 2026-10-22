@@ -113,7 +113,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
       var box = document.createElement('div'); box.className = 'box'; box.appendChild(n);
       if (mode === 'merge'){
         var pi = document.createElement('input'); pi.type = 'text'; pi.inputMode = 'text';
-        pi.placeholder = 'Todas las páginas deja el espacio en blanco';
+        pi.placeholder = 'Todas las páginas, deja el espacio en blanco';
         pi.value = f.pages || '';
         pi.oninput = function(){ f.pages = pi.value };
         box.appendChild(pi);
