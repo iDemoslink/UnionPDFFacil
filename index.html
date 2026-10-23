@@ -127,7 +127,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
     input.multiple = m !== 'edit' && m !== 'unlock' && m !== 'stamp';
     $('pick').textContent = m==='merge' ? '+ Elige los PDFs' : m==='img' ? '+ Elige las imágenes' : m==='stamp' ? '+ Elige el PDF' : '+ Elige un PDF';
     $('qwrap').style.display = (m==='edit' || m==='unlock' || m==='stamp') ? 'none' : '';
-    $('hint').textContent = m==='edit' ? 'Gira, mueve o quita las páginas que quieras. Las que quites no aparecerán en el PDF nuevo :D' : m==='stamp' ? 'Elige el PDF y la imagen (una firma, un logo, una foto…). Ve a la página que quieras y toca dónde va.' : m==='unlock' ? 'Quita restricciones como no poder imprimir o copiar, y conserva el texto. Úsalo con documentos que tengas derecho a usar.' : '';
+    $('hint').textContent = m==='edit' ? 'Gira, mueve o quita las páginas que quieras. Las que quites no aparecerán en el PDF nuevo :D' : m==='stamp' ? 'Elige el PDF y la imagen, ve a la página que quieras y toca dónde va :D' : m==='unlock' ? 'Solo desbloquea! :D' : '';
     say(''); render(); if (typeof updateNote === 'function') updateNote();
   }
   function say(t, err){ msg.textContent = t; msg.className = 'msg' + (err ? ' err' : ''); }
@@ -326,7 +326,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
       doc.destroy();
       if (id === loadId){ say(''); renderEdit(); }
     }catch(e){
-      if (id === loadId){ say('No pude abrir ese PDF: ' + ((e && e.message) || 'revisa que sea válido'), true); }
+      if (id === loadId){ say('No se pudo abrir ese PDF: ' + ((e && e.message) || 'revisa que sea válido'), true); }
     }
   }
 
