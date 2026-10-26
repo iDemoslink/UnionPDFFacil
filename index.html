@@ -33,6 +33,7 @@ li .num{color:var(--muted);width:1.4em;text-align:right}
 li button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:1rem;cursor:pointer}
 li button:disabled{opacity:.3}
 .q{display:block;margin:16px 0 6px;font-weight:600;font-size:.95rem}
+#ipages{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px}
 select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px}
 .note{margin-top:8px;color:var(--muted);font-size:.85rem;min-height:1.2em}
 .go{margin-top:16px;width:100%;padding:16px;border:0;border-radius:14px;background:var(--accent);color:var(--accent-t);font-size:1.1rem;font-weight:700;cursor:pointer}
@@ -72,6 +73,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
     <button class="tab" role="tab" id="t-edit" aria-selected="false"><span class="ic">✂️</span>Editar páginas</button>
     <button class="tab" role="tab" id="t-unlock" aria-selected="false"><span class="ic">🔓</span>Desbloquear</button>
     <button class="tab" role="tab" id="t-stamp" aria-selected="false"><span class="ic">🖊️</span>Añadir imagen</button>
+    <button class="tab" role="tab" id="t-toimg" aria-selected="false"><span class="ic">📸</span>PDF a imagen</button>
   </div>
 
   <div class="card">
@@ -89,6 +91,14 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
       <div class="note">Toca la página para mover la imagen ahí, o arrástrala</div>
     </div>
     <ul id="list"></ul>
+    <div id="imgui" style="display:none">
+      <label class="q" for="ifmt">Formato</label>
+      <select id="ifmt"><option value="png">PNG (mejor calidad)</option><option value="jpg">JPG (más ligero)</option></select>
+      <label class="q" for="ires">Resolución</label>
+      <select id="ires"><option value="150">Normal (150 dpi)</option><option value="220">Alta (220 dpi)</option><option value="100">Baja (100 dpi, más ligera)</option></select>
+      <label class="q" for="ipages">Páginas</label>
+      <input type="text" id="ipages" placeholder="Vacío = todas (ej: 2 o 1-3, 5)">
+    </div>
     <div id="qwrap">
     <label class="q" for="qual">Calidad</label>
     <select id="qual">
@@ -119,15 +129,17 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
     $('t-edit').setAttribute('aria-selected', m==='edit');
     $('t-unlock').setAttribute('aria-selected', m==='unlock');
     $('t-stamp').setAttribute('aria-selected', m==='stamp');
+    $('t-toimg').setAttribute('aria-selected', m==='toimg');
+    $('imgui').style.display = m==='toimg' ? '' : 'none'; $('ipages').value = '';
     stampReset();
     $('stampui').style.display = m==='stamp' ? '' : 'none';
     $('pickimg').style.display = m==='stamp' ? '' : 'none';
     list.style.display = m==='stamp' ? 'none' : '';
     input.accept = m==='img' ? 'image/*' : 'application/pdf,.pdf';
-    input.multiple = m !== 'edit' && m !== 'unlock' && m !== 'stamp';
+    input.multiple = m !== 'edit' && m !== 'unlock' && m !== 'stamp' && m !== 'toimg';
     $('pick').textContent = m==='merge' ? '+ Elige los PDFs' : m==='img' ? '+ Elige las imágenes' : m==='stamp' ? '+ Elige el PDF' : '+ Elige un PDF';
-    $('qwrap').style.display = (m==='edit' || m==='unlock' || m==='stamp') ? 'none' : '';
-    $('hint').textContent = m==='edit' ? 'Gira, mueve o quita las páginas que quieras. Las que quites no aparecerán en el PDF nuevo :D' : m==='stamp' ? 'Elige el PDF y la imagen, ve a la página que quieras y toca dónde va :D' : m==='unlock' ? 'Solo desbloquea! :D' : '';
+    $('qwrap').style.display = (m==='edit' || m==='unlock' || m==='stamp' || m==='toimg') ? 'none' : '';
+    $('hint').textContent = m==='edit' ? 'Gira, mueve o quita las páginas que quieras. Las que quites no aparecerán en el PDF nuevo :D' : m==='stamp' ? 'Elige el PDF y la imagen, ve a la página que quieras y toca dónde va :D' : m==='unlock' ? 'Solo desbloquea! :D' : m==='toimg' ? 'Cada página se guarda como imagen. Si son varias, te las entrego juntas en un .zip :D' : '';
     say(''); render(); if (typeof updateNote === 'function') updateNote();
   }
   function say(t, err){ msg.textContent = t; msg.className = 'msg' + (err ? ' err' : ''); }
@@ -159,7 +171,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
       list.appendChild(li);
     });
     go.disabled = files.length === 0 || (mode==='merge' && files.length < 2);
-    go.textContent = mode==='merge' ? 'Unir y crear PDF' : mode==='stamp' ? 'Crear PDF con la imagen' : mode==='unlock' ? 'Desbloquear PDF' : 'Crear PDF';
+    go.textContent = mode==='merge' ? 'Unir y crear PDF' : mode==='stamp' ? 'Crear PDF con la imagen' : mode==='unlock' ? 'Desbloquear PDF' : mode==='toimg' ? 'Convertir a imagen' : 'Crear PDF';
   }
   function swap(a,b){ var t = files[a]; files[a] = files[b]; files[b] = t; render(); }
 
@@ -175,7 +187,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
       if (sf) loadStampPdf(sf);
       return;
     }
-    if (mode === 'unlock'){
+    if (mode === 'unlock' || mode === 'toimg'){
       files = input.files[0] ? [input.files[0]] : []; input.value = ''; say(''); render();
       return;
     }
@@ -187,6 +199,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
   $('t-edit').onclick = function(){ setMode('edit') };
   $('t-unlock').onclick = function(){ setMode('unlock') };
   $('t-stamp').onclick = function(){ setMode('stamp') };
+  $('t-toimg').onclick = function(){ setMode('toimg') };
   $('pickimg').onclick = function(){ $('fileimg').click() };
   $('fileimg').onchange = function(){ var f = $('fileimg').files[0]; $('fileimg').value = ''; if (f) loadStampImg(f); };
 
@@ -487,6 +500,63 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
     return await src.save();
   }
 
+  var crcT = null;
+  function crc32(u8){
+    if (!crcT){ crcT = []; for (var n=0;n<256;n++){ var c=n; for (var k=0;k<8;k++) c = c&1 ? 0xEDB88320 ^ (c>>>1) : c>>>1; crcT[n] = c>>>0; } }
+    var c2 = 0xFFFFFFFF; for (var i=0;i<u8.length;i++) c2 = crcT[(c2 ^ u8[i]) & 255] ^ (c2 >>> 8);
+    return (c2 ^ 0xFFFFFFFF) >>> 0;
+  }
+  function makeZip(items){
+    var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+    items.forEach(function(it){
+      var nm = enc.encode(it.name), crc = crc32(it.bytes), sz = it.bytes.length;
+      var lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+      lh.setUint16(10,0,true); lh.setUint16(12,0x21,true); lh.setUint32(14,crc,true); lh.setUint32(18,sz,true);
+      lh.setUint32(22,sz,true); lh.setUint16(26,nm.length,true); lh.setUint16(28,0,true);
+      parts.push(new Uint8Array(lh.buffer), nm, it.bytes);
+      var ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true);
+      ch.setUint16(10,0,true); ch.setUint16(12,0,true); ch.setUint16(14,0x21,true); ch.setUint32(16,crc,true);
+      ch.setUint32(20,sz,true); ch.setUint32(24,sz,true); ch.setUint16(28,nm.length,true); ch.setUint32(42,offset,true);
+      central.push(new Uint8Array(ch.buffer), nm);
+      offset += 30 + nm.length + sz;
+    });
+    var csize = central.reduce(function(t,p){ return t + p.length }, 0);
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0,0x06054b50,true); end.setUint16(8,items.length,true); end.setUint16(10,items.length,true);
+    end.setUint32(12,csize,true); end.setUint32(16,offset,true);
+    var all = parts.concat(central, [new Uint8Array(end.buffer)]);
+    var total = all.reduce(function(t,p){ return t + p.length }, 0), out = new Uint8Array(total), pos = 0;
+    all.forEach(function(p){ out.set(p, pos); pos += p.length; });
+    return out;
+  }
+
+  async function buildImages(){
+    var pdfjs = await loadPdfjs();
+    var doc = await pdfjs.getDocument({data: new Uint8Array(await files[0].arrayBuffer())}).promise;
+    var idx = parsePages($('ipages').value, doc.numPages, files[0].name);
+    var dpi = +$('ires').value, png = $('ifmt').value === 'png';
+    var ext = png ? 'png' : 'jpg', mime = png ? 'image/png' : 'image/jpeg';
+    var base = files[0].name.replace(/\.pdf$/i, ''), outs = [];
+    for (var k=0;k<idx.length;k++){
+      say('Convirtiendo página ' + (k+1) + ' de ' + idx.length + '…');
+      var pg = await doc.getPage(idx[k]+1);
+      var v1 = pg.getViewport({scale:1}), sc = dpi/72;
+      var lim = Math.sqrt(16000000 / (v1.width * v1.height));
+      var v = pg.getViewport({scale: Math.min(sc, lim)});
+      var c = document.createElement('canvas'); c.width = Math.floor(v.width); c.height = Math.floor(v.height);
+      var cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0,0,c.width,c.height);
+      await pg.render({canvasContext: cx, viewport: v}).promise;
+      var bytes = png ? await canvasPng(c) : await canvasJpg(c, 0.92);
+      c.width = 0; c.height = 0; pg.cleanup();
+      outs.push({name: base + '-pag' + (idx[k]+1) + '.' + ext, bytes: new Uint8Array(bytes)});
+    }
+    doc.destroy();
+    if (outs.length === 1) return {bytes: outs[0].bytes, name: outs[0].name, mime: mime, count: 1};
+    return {bytes: makeZip(outs), name: base + '-imagenes.zip', mime: 'application/zip', count: outs.length};
+  }
+
   async function build(level){
     if (mode === 'edit') return buildEdit();
     if (mode === 'stamp') return buildStamp();
@@ -552,8 +622,17 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
   $('qual').onchange = updateNote;
 
   go.onclick = async function(){
-    go.disabled = true; say('Creando tu PDF…');
+    go.disabled = true; say(mode==='toimg' ? 'Convirtiendo…' : 'Creando tu PDF…');
     try{
+      if (mode === 'toimg'){
+        var res = await buildImages();
+        var u2 = URL.createObjectURL(new Blob([res.bytes], {type: res.mime}));
+        var a2 = document.createElement('a'); a2.href = u2; a2.download = res.name;
+        document.body.appendChild(a2); a2.click(); a2.remove();
+        setTimeout(function(){ URL.revokeObjectURL(u2) }, 60000);
+        say('Ya quedó :D Se guardó ' + res.name + ' (' + res.count + (res.count === 1 ? ' imagen, ' : ' imágenes, ') + mb(res.bytes.length) + ').');
+        render(); return;
+      }
       var level = (mode === 'edit' || mode === 'unlock' || mode === 'stamp') ? 'orig' : $('qual').value;
       var before = files.reduce(function(t, f){ return t + f.size }, 0);
       var bytes = await build(level);
