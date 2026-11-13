@@ -631,6 +631,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
         document.body.appendChild(a2); a2.click(); a2.remove();
         setTimeout(function(){ URL.revokeObjectURL(u2) }, 60000);
         say('Ya quedó :D Se guardó ' + res.name + ' (' + res.count + (res.count === 1 ? ' imagen, ' : ' imágenes, ') + mb(res.bytes.length) + ').');
+        files = []; editPages = []; editBuf = null; stampReset();
         render(); return;
       }
       var level = (mode === 'edit' || mode === 'unlock' || mode === 'stamp') ? 'orig' : $('qual').value;
@@ -645,6 +646,7 @@ ul.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));g
       setTimeout(function(){ URL.revokeObjectURL(url) }, 60000);
       var info = ' Pesa ' + mb(bytes.length) + (level==='orig' ? '.' : ' (antes ' + mb(before) + ').');
       say('Ya quedó :D Tu PDF se guardó. ✅' + info + (level!=='orig' && bytes.length >= before ? ' No bajó de peso: mejor usa Original.' : ''));
+      files = []; editPages = []; editBuf = null; stampReset();
     }catch(e){
       say('Algo falló: ' + ((e && e.message) || 'revisa que los archivos sean válidos') , true);
     }
